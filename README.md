@@ -12,4 +12,4 @@ vcpkg install tabulate
 The executable takes only one parameter which is the dataset (in `.csv` format).
 
 ## Datasets
-Please download from [UCI]http://archive.ics.uci.edu/dataset/235/individual+household+electric+power+consumption
+Please download from [UCI](http://archive.ics.uci.edu/dataset/235/individual+household+electric+power+consumption)
