@@ -107,6 +107,14 @@ std::vector<int> Quantize(std::vector<float> const &val,
   return ids;
 }
 
+float QuantizeQuery(std::vector<float> const &lookup, float query, float max) {
+  int id = FindID(lookup, query);
+  float width = (id == lookup.size() - 1) ? max - lookup[id]
+                                          : lookup[id + 1] - lookup[id];
+
+  return id + (query - lookup[id]) / width;
+}
+
 std::pair<float, float> GetQuery(std::vector<float> const &val) {
   float a = val[rand() % val.size()];
   float b = val[rand() % val.size()];
@@ -127,9 +135,38 @@ int BruteForce(std::vector<float> const &fst, std::vector<float> const &snd,
   return cnt;
 }
 
+int GetPrefixSum(std::vector<std::vector<int>> const &prefix, int x, int y) {
+  if (x == 0 || y == 0)
+    return 0;
+  else
+    return prefix[x - 1][y - 1];
+}
+
+float GetPrefixSum(std::vector<std::vector<int>> const &prefix, float x,
+                   float y) {
+  // Any float number can be expressed as Q + R, where Q is the integer part and
+  // R is the remnant
+  int qx = std::trunc(x);
+  int qy = std::trunc(y);
+  float rx = x - qx;
+  float ry = y - qy;
+
+  float ans = (1 - rx) * (1 - ry) * GetPrefixSum(prefix, qx, qy) +
+              rx * (1 - ry) * GetPrefixSum(prefix, qx + 1, qy) +
+              ry * (1 - rx) * GetPrefixSum(prefix, qx, qy + 1) +
+              rx * ry * GetPrefixSum(prefix, qx + 1, qy + 1);
+
+  // std::cout << "Queried: (" << x << ", " << y << ")" << std::endl;
+  // std::cout << "Returned: " << ans << std::endl;
+  return ans;
+}
+
 tabulate::Table DoExperiment(std::vector<std::string> const &fst,
                              std::vector<std::string> const &snd, int bkt_fst,
                              int bkt_snd, int dv_fst, int dv_snd) {
+
+  float epsilon = 0.25;
+  
   tabulate::Table results;
   results.add_row({"Query Lower Bound", "Query Upper Bound", "Estimated Value",
                    "Actual Value", "Q-Error"});
@@ -194,28 +231,19 @@ tabulate::Table DoExperiment(std::vector<std::string> const &fst,
     int act = BruteForce(val_fst, val_snd, query_fst, query_snd);
 
     // Quantize the given query
-    int lb_fst = FindID(lookup_fst, query_fst.first);
-    int ub_fst = FindID(lookup_fst, query_fst.second);
+    float lb_fst = QuantizeQuery(lookup_fst, query_fst.first, max_fst);
+    float ub_fst = QuantizeQuery(lookup_fst, query_fst.second, max_fst);
+    ub_fst = (ub_fst - lb_fst > epsilon) ? ub_fst : lb_fst + epsilon;
 
-    int lb_snd = FindID(lookup_snd, query_snd.first);
-    int ub_snd = FindID(lookup_snd, query_snd.second);
+    float lb_snd = QuantizeQuery(lookup_snd, query_snd.first, max_snd);
+    float ub_snd = QuantizeQuery(lookup_snd, query_snd.second, max_snd);
+    ub_snd = (ub_snd - lb_snd > epsilon) ? ub_snd : lb_snd + epsilon;
 
     // Use the prefix-sum matrix for CE
-    int est;
-    if (lb_fst == 0) {
-      if (lb_snd == 0) {
-        est = prefix[ub_fst][ub_snd];
-      } else {
-        est = prefix[ub_fst][ub_snd] - prefix[ub_fst][lb_snd - 1];
-      }
-    } else {
-      if (lb_snd == 0) {
-        est = prefix[ub_fst][ub_snd] - prefix[lb_fst - 1][ub_snd];
-      } else {
-        est = prefix[ub_fst][ub_snd] - prefix[ub_fst][lb_snd - 1] -
-              prefix[lb_fst - 1][ub_snd] + prefix[lb_fst - 1][lb_snd - 1];
-      }
-    }
+    int est = std::round(GetPrefixSum(prefix, ub_fst, ub_snd) -
+                         GetPrefixSum(prefix, lb_fst, ub_snd) -
+                         GetPrefixSum(prefix, ub_fst, lb_snd) +
+                         GetPrefixSum(prefix, lb_fst, lb_snd));
 
     float qerr = std::max(est, act) * 1.0 / std::min(est, act);
     std::string lb = "(" + std::to_string(query_fst.first) + ", " +
