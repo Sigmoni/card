@@ -1,5 +1,7 @@
 #pragma once
 
+#define EPSILON 0.25
+
 #include "rapidcsv.h"
 #include <iostream>
 #include <string>

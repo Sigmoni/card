@@ -165,7 +165,7 @@ tabulate::Table DoExperiment(std::vector<std::string> const &fst,
                              std::vector<std::string> const &snd, int bkt_fst,
                              int bkt_snd, int dv_fst, int dv_snd) {
 
-  float epsilon = 0.25;
+  float epsilon = EPSILON;
   
   tabulate::Table results;
   results.add_row({"Query Lower Bound", "Query Upper Bound", "Estimated Value",
