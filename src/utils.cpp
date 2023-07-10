@@ -161,15 +161,87 @@ float GetPrefixSum(std::vector<std::vector<int>> const &prefix, float x,
   return ans;
 }
 
+void Method1(std::vector<float> const &lookup_fst,
+             std::vector<float> const &lookup_snd,
+             std::pair<float, float> const &query_fst,
+             std::pair<float, float> const &query_snd, float max_fst,
+             float max_snd, int bkt_fst, int bkt_snd, int dv_fst, int dv_snd,
+             std::vector<std::vector<int>> const &prefix, int act,
+             tabulate::Table &results) {
+  // Quantize the given query
+  float lb_fst = QuantizeQuery(lookup_fst, query_fst.first, max_fst);
+  float ub_fst = QuantizeQuery(lookup_fst, query_fst.second, max_fst);
+  float epsilon = bkt_fst * 1.0 / dv_fst;
+  epsilon = (epsilon > 1) ? 1 : epsilon;
+  //ub_fst = (ub_fst - lb_fst > epsilon) ? ub_fst : lb_fst + epsilon;
+  ub_fst += epsilon;
+
+  float lb_snd = QuantizeQuery(lookup_snd, query_snd.first, max_snd);
+  float ub_snd = QuantizeQuery(lookup_snd, query_snd.second, max_snd);
+  epsilon = bkt_snd * 1.0 / dv_snd;
+  epsilon = (epsilon > 1) ? 1 : epsilon;
+  //ub_snd = (ub_snd - lb_snd > epsilon) ? ub_snd : lb_snd + epsilon;
+  ub_snd += epsilon;
+
+  int est = std::round(GetPrefixSum(prefix, ub_fst, ub_snd) -
+                       GetPrefixSum(prefix, lb_fst, ub_snd) -
+                       GetPrefixSum(prefix, ub_fst, lb_snd) +
+                       GetPrefixSum(prefix, lb_fst, lb_snd));
+
+  float qerr = std::max(est, act) * 1.0 / std::min(est, act);
+  std::string lb = "(" + std::to_string(query_fst.first) + ", " +
+                   std::to_string(query_snd.first) + ")";
+  std::string qlb =
+      "(" + std::to_string(lb_fst) + ", " + std::to_string(lb_snd) + ")";
+  std::string ub = "(" + std::to_string(query_fst.second) + ", " +
+                   std::to_string(query_snd.second) + ")";
+  std::string qub =
+      "(" + std::to_string(ub_fst) + ", " + std::to_string(ub_snd) + ")";
+  results.add_row({lb, qlb, ub, qub, std::to_string(est), std::to_string(act),
+                   std::to_string(qerr)});
+}
+
+void Method2(std::vector<float> const &lookup_fst,
+             std::vector<float> const &lookup_snd,
+             std::pair<float, float> const &query_fst,
+             std::pair<float, float> const &query_snd, float max_fst,
+             float max_snd, int bkt_fst, int bkt_snd, int dv_fst, int dv_snd,
+             std::vector<std::vector<int>> const &prefix, int act,
+             tabulate::Table &results) {
+  int lb_fst = FindID(lookup_fst, query_fst.first);
+  int ub_fst = FindID(lookup_fst, query_fst.second) + 1;
+  int lb_snd = FindID(lookup_snd, query_snd.first);
+  int ub_snd = FindID(lookup_snd, query_snd.second) + 1;
+
+  // Use the prefix-sum matrix for CE
+  int est = std::round(GetPrefixSum(prefix, ub_fst, ub_snd) -
+                       GetPrefixSum(prefix, lb_fst, ub_snd) -
+                       GetPrefixSum(prefix, ub_fst, lb_snd) +
+                       GetPrefixSum(prefix, lb_fst, lb_snd));
+
+  float qerr = std::max(est, act) * 1.0 / std::min(est, act);
+  std::string lb = "(" + std::to_string(query_fst.first) + ", " +
+                   std::to_string(query_snd.first) + ")";
+  std::string qlb =
+      "(" + std::to_string(lb_fst) + ", " + std::to_string(lb_snd) + ")";
+  std::string ub = "(" + std::to_string(query_fst.second) + ", " +
+                   std::to_string(query_snd.second) + ")";
+  std::string qub =
+      "(" + std::to_string(ub_fst) + ", " + std::to_string(ub_snd) + ")";
+  results.add_row({lb, qlb, ub, qub, std::to_string(est), std::to_string(act),
+                   std::to_string(qerr)});
+}
+
 tabulate::Table DoExperiment(std::vector<std::string> const &fst,
                              std::vector<std::string> const &snd, int bkt_fst,
                              int bkt_snd, int dv_fst, int dv_snd) {
 
-  float epsilon = EPSILON;
-  
+  // This decision is awful
+  // float epsilon = EPSILON;
+
   tabulate::Table results;
-  results.add_row({"Query Lower Bound", "Query Upper Bound", "Estimated Value",
-                   "Actual Value", "Q-Error"});
+  results.add_row({"Query Lower Bound", "Quantized", "Query Upper Bound",
+                   "Quantized", "Estimated Value", "Actual Value", "Q-Error"});
   results.row(0).format().font_color(tabulate::Color::blue);
 
   // To filter unparsable values (i.e. '?' or NaN)
@@ -230,28 +302,11 @@ tabulate::Table DoExperiment(std::vector<std::string> const &fst,
     std::pair<float, float> query_snd = GetQuery(val_snd);
     int act = BruteForce(val_fst, val_snd, query_fst, query_snd);
 
-    // Quantize the given query
-    float lb_fst = QuantizeQuery(lookup_fst, query_fst.first, max_fst);
-    float ub_fst = QuantizeQuery(lookup_fst, query_fst.second, max_fst);
-    ub_fst = (ub_fst - lb_fst > epsilon) ? ub_fst : lb_fst + epsilon;
+    Method1(lookup_fst, lookup_snd, query_fst, query_snd, max_fst, max_snd,
+            bkt_fst, bkt_snd, dv_fst, dv_snd, prefix, act, results);
 
-    float lb_snd = QuantizeQuery(lookup_snd, query_snd.first, max_snd);
-    float ub_snd = QuantizeQuery(lookup_snd, query_snd.second, max_snd);
-    ub_snd = (ub_snd - lb_snd > epsilon) ? ub_snd : lb_snd + epsilon;
-
-    // Use the prefix-sum matrix for CE
-    int est = std::round(GetPrefixSum(prefix, ub_fst, ub_snd) -
-                         GetPrefixSum(prefix, lb_fst, ub_snd) -
-                         GetPrefixSum(prefix, ub_fst, lb_snd) +
-                         GetPrefixSum(prefix, lb_fst, lb_snd));
-
-    float qerr = std::max(est, act) * 1.0 / std::min(est, act);
-    std::string lb = "(" + std::to_string(query_fst.first) + ", " +
-                     std::to_string(query_snd.first) + ")";
-    std::string ub = "(" + std::to_string(query_fst.second) + ", " +
-                     std::to_string(query_snd.second) + ")";
-    results.add_row({lb, ub, std::to_string(est), std::to_string(act),
-                     std::to_string(qerr)});
+    Method2(lookup_fst, lookup_snd, query_fst, query_snd, max_fst, max_snd,
+            bkt_fst, bkt_snd, dv_fst, dv_snd, prefix, act, results);
   }
 
   return results;
