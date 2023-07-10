@@ -156,3 +156,9 @@ Even though having more buckets effectively suppresses q-error, the naive method
 | (0.446000, 0.000000) | (90, 0)                | (1.720000, 0.000000)  | (403, 1)                | 752136          | 698831       | 1.076277 |
 | (0.218000, 0.000000) | (34.500000, 0.000000)  | (1.446000, 0.000000)  | (335.489136, 0.359551)  | 458433          | 1238240      | 2.701027 |
 | (0.218000, 0.000000) | (34, 0)                | (1.446000, 0.000000)  | (336, 1)                | 1287098         | 1238240      | 1.039458 |
+
+It may be caused by extremely unbalanced distribution among distinct values. 
+
+## Discussion
+
+Try making buckets of balanced height (which means they should carry the same number of elements instead of distinct values).
