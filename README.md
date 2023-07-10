@@ -81,3 +81,6 @@ For example:
 
 ## Datasets
 Please download from [UCI](http://archive.ics.uci.edu/dataset/235/individual+household+electric+power+consumption)
+
+## Results
+The experiment report can be seen [here](./results/report1.md).
