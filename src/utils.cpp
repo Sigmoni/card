@@ -3,10 +3,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <exception>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <tabulate/color.hpp>
+#include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
+#include <tabulate/table_internal.hpp>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -161,26 +164,26 @@ float GetPrefixSum(std::vector<std::vector<int>> const &prefix, float x,
   return ans;
 }
 
-void Method1(std::vector<float> const &lookup_fst,
-             std::vector<float> const &lookup_snd,
-             std::pair<float, float> const &query_fst,
-             std::pair<float, float> const &query_snd, float max_fst,
-             float max_snd, int bkt_fst, int bkt_snd, int dv_fst, int dv_snd,
-             std::vector<std::vector<int>> const &prefix, int act,
-             tabulate::Table &results) {
+float Method1(std::vector<float> const &lookup_fst,
+              std::vector<float> const &lookup_snd,
+              std::pair<float, float> const &query_fst,
+              std::pair<float, float> const &query_snd, float max_fst,
+              float max_snd, int bkt_fst, int bkt_snd, int dv_fst, int dv_snd,
+              std::vector<std::vector<int>> const &prefix, int act,
+              tabulate::Table &results) {
   // Quantize the given query
   float lb_fst = QuantizeQuery(lookup_fst, query_fst.first, max_fst);
   float ub_fst = QuantizeQuery(lookup_fst, query_fst.second, max_fst);
   float epsilon = bkt_fst * 1.0 / dv_fst;
   epsilon = (epsilon > 1) ? 1 : epsilon;
-  //ub_fst = (ub_fst - lb_fst > epsilon) ? ub_fst : lb_fst + epsilon;
+  // ub_fst = (ub_fst - lb_fst > epsilon) ? ub_fst : lb_fst + epsilon;
   ub_fst += epsilon;
 
   float lb_snd = QuantizeQuery(lookup_snd, query_snd.first, max_snd);
   float ub_snd = QuantizeQuery(lookup_snd, query_snd.second, max_snd);
   epsilon = bkt_snd * 1.0 / dv_snd;
   epsilon = (epsilon > 1) ? 1 : epsilon;
-  //ub_snd = (ub_snd - lb_snd > epsilon) ? ub_snd : lb_snd + epsilon;
+  // ub_snd = (ub_snd - lb_snd > epsilon) ? ub_snd : lb_snd + epsilon;
   ub_snd += epsilon;
 
   int est = std::round(GetPrefixSum(prefix, ub_fst, ub_snd) -
@@ -189,25 +192,27 @@ void Method1(std::vector<float> const &lookup_fst,
                        GetPrefixSum(prefix, lb_fst, lb_snd));
 
   float qerr = std::max(est, act) * 1.0 / std::min(est, act);
-  std::string lb = "(" + std::to_string(query_fst.first) + ", " +
-                   std::to_string(query_snd.first) + ")";
-  std::string qlb =
-      "(" + std::to_string(lb_fst) + ", " + std::to_string(lb_snd) + ")";
-  std::string ub = "(" + std::to_string(query_fst.second) + ", " +
-                   std::to_string(query_snd.second) + ")";
-  std::string qub =
-      "(" + std::to_string(ub_fst) + ", " + std::to_string(ub_snd) + ")";
-  results.add_row({lb, qlb, ub, qub, std::to_string(est), std::to_string(act),
-                   std::to_string(qerr)});
+  // std::string lb = "(" + std::to_string(query_fst.first) + ", " +
+  //                  std::to_string(query_snd.first) + ")";
+  // std::string qlb =
+  //     "(" + std::to_string(lb_fst) + ", " + std::to_string(lb_snd) + ")";
+  // std::string ub = "(" + std::to_string(query_fst.second) + ", " +
+  //                  std::to_string(query_snd.second) + ")";
+  // std::string qub =
+  //     "(" + std::to_string(ub_fst) + ", " + std::to_string(ub_snd) + ")";
+  // results.add_row({lb, qlb, ub, qub, std::to_string(est), std::to_string(act),
+  //                  std::to_string(qerr)});
+
+  return qerr;
 }
 
-void Method2(std::vector<float> const &lookup_fst,
-             std::vector<float> const &lookup_snd,
-             std::pair<float, float> const &query_fst,
-             std::pair<float, float> const &query_snd, float max_fst,
-             float max_snd, int bkt_fst, int bkt_snd, int dv_fst, int dv_snd,
-             std::vector<std::vector<int>> const &prefix, int act,
-             tabulate::Table &results) {
+float Method2(std::vector<float> const &lookup_fst,
+              std::vector<float> const &lookup_snd,
+              std::pair<float, float> const &query_fst,
+              std::pair<float, float> const &query_snd, float max_fst,
+              float max_snd, int bkt_fst, int bkt_snd, int dv_fst, int dv_snd,
+              std::vector<std::vector<int>> const &prefix, int act,
+              tabulate::Table &results) {
   int lb_fst = FindID(lookup_fst, query_fst.first);
   int ub_fst = FindID(lookup_fst, query_fst.second) + 1;
   int lb_snd = FindID(lookup_snd, query_snd.first);
@@ -220,29 +225,54 @@ void Method2(std::vector<float> const &lookup_fst,
                        GetPrefixSum(prefix, lb_fst, lb_snd));
 
   float qerr = std::max(est, act) * 1.0 / std::min(est, act);
-  std::string lb = "(" + std::to_string(query_fst.first) + ", " +
-                   std::to_string(query_snd.first) + ")";
-  std::string qlb =
-      "(" + std::to_string(lb_fst) + ", " + std::to_string(lb_snd) + ")";
-  std::string ub = "(" + std::to_string(query_fst.second) + ", " +
-                   std::to_string(query_snd.second) + ")";
-  std::string qub =
-      "(" + std::to_string(ub_fst) + ", " + std::to_string(ub_snd) + ")";
-  results.add_row({lb, qlb, ub, qub, std::to_string(est), std::to_string(act),
-                   std::to_string(qerr)});
+  // std::string lb = "(" + std::to_string(query_fst.first) + ", " +
+  //                  std::to_string(query_snd.first) + ")";
+  // std::string qlb =
+  //     "(" + std::to_string(lb_fst) + ", " + std::to_string(lb_snd) + ")";
+  // std::string ub = "(" + std::to_string(query_fst.second) + ", " +
+  //                  std::to_string(query_snd.second) + ")";
+  // std::string qub =
+  //     "(" + std::to_string(ub_fst) + ", " + std::to_string(ub_snd) + ")";
+  // results.add_row({lb, qlb, ub, qub, std::to_string(est), std::to_string(act),
+  //                  std::to_string(qerr)});
+
+  return qerr;
 }
 
-tabulate::Table DoExperiment(std::vector<std::string> const &fst,
-                             std::vector<std::string> const &snd, int bkt_fst,
-                             int bkt_snd, int dv_fst, int dv_snd) {
+int ComputeBuckets(int dv1, int dv2, int bits) {
+  int alloc1 = 0;
+  int alloc2 = 0;
+  int bkt1 = 1;
+  int bkt2 = 1;
+  auto acc = [bkt1, bkt2, dv1, dv2]() {
+    float acc1 = (bkt1 > dv1) ? 1.0 : 1 - 0.5 / bkt1;
+    float acc2 = (bkt2 > dv2) ? 1.0 : 1 - 0.5 / bkt2;
 
-  // This decision is awful
-  // float epsilon = EPSILON;
+    return acc1 * acc2;
+  };
+  float max = acc();
 
-  tabulate::Table results;
-  results.add_row({"Query Lower Bound", "Quantized", "Query Upper Bound",
-                   "Quantized", "Estimated Value", "Actual Value", "Q-Error"});
-  results.row(0).format().font_color(tabulate::Color::blue);
+  for (int i = 0; i < bits; i++) {
+    if (dv1 * 1.0 / bkt1 > dv2 * 1.0 / bkt2) {
+      alloc1++;
+      bkt1 *= 2;
+    } else {
+      alloc2++;
+      bkt2 *= 2;
+    }
+  }
+
+  return alloc1;
+}
+
+void DoExperiment(std::string columnset, std::vector<std::string> const &fst,
+                  std::vector<std::string> const &snd, int dv_fst, int dv_snd,
+                  tabulate::Table &summary1, tabulate::Table &summary2,
+                  std::ofstream &result, tabulate::MarkdownExporter &exporter) {
+
+  std::string exp_size =
+      std::to_string(dv_fst) + " * " + std::to_string(dv_snd);
+  std::cout << "#DV : " << exp_size << std::endl << std::endl;
 
   // To filter unparsable values (i.e. '?' or NaN)
   float max_fst, min_fst, max_snd, min_snd;
@@ -263,51 +293,139 @@ tabulate::Table DoExperiment(std::vector<std::string> const &fst,
     }
   }
 
-  // Quantize the column values
-  auto lookup_fst = BuildLookup(val_fst, bkt_fst, dv_fst);
-  auto lookup_snd = BuildLookup(val_snd, bkt_snd, dv_snd);
-  auto ids_fst = Quantize(val_fst, lookup_fst);
-  auto ids_snd = Quantize(val_snd, lookup_snd);
+  // Randomly generate #QUERY_WORKLOAD queries
+  std::vector<Query> queries_fst;
+  std::vector<Query> queries_snd;
+  std::vector<int> act_vals;
+  for (int i = 0; i < QUERY_WORKLOAD; i++) {
+    Query query_fst = GetQuery(val_fst);
+    Query query_snd = GetQuery(val_snd);
+    int act = BruteForce(val_fst, val_snd, query_fst, query_snd);
 
-  // Generate the distribution matrix
-  std::vector<std::vector<int>> dist(bkt_fst, std::vector<int>(bkt_snd, 0));
-  for (int i = 0; i < ids_fst.size(); i++) {
-    dist[ids_fst[i]][ids_snd[i]]++;
+    queries_fst.push_back(query_fst);
+    queries_snd.push_back(query_snd);
+    act_vals.push_back(act);
   }
 
-  // Build up the prefix sum matrix
-  std::vector<std::vector<int>> prefix(bkt_fst, std::vector<int>(bkt_snd, 0));
-  for (int i = 0; i < bkt_fst; i++) {
-    for (int j = 0; j < bkt_snd; j++) {
-      if (i == 0) {
-        if (j == 0) {
-          prefix[i][j] = dist[i][j];
+  for (int bits = 8; bits <= 16; bits += 4) {
+    tabulate::Table resultTable;
+    resultTable.add_row({"Query Lower Bound", "Quantized", "Query Upper Bound",
+                         "Quantized", "Estimated Value", "Actual Value",
+                         "Q-Error"});
+    resultTable.row(0).format().font_color(tabulate::Color::blue);
+
+    int alloc_fst = ComputeBuckets(dv_fst, dv_snd, bits);
+    int alloc_snd = bits - alloc_fst;
+    int bkt_fst = std::pow(2, alloc_fst);
+    int bkt_snd = std::pow(2, alloc_snd);
+    std::string alloc_size =
+        std::to_string(bkt_fst) + " * " + std::to_string(bkt_snd);
+
+    std::cout << "Bit width : " << bits << std::endl;
+    std::cout << "Allocate Buckets : " << alloc_size << std::endl << std::endl;
+
+    // Quantize the column values
+    auto lookup_fst = BuildLookup(val_fst, bkt_fst, dv_fst);
+    auto lookup_snd = BuildLookup(val_snd, bkt_snd, dv_snd);
+    auto ids_fst = Quantize(val_fst, lookup_fst);
+    auto ids_snd = Quantize(val_snd, lookup_snd);
+
+    // Generate the distribution matrix
+    std::vector<std::vector<int>> dist(bkt_fst, std::vector<int>(bkt_snd, 0));
+    for (int i = 0; i < ids_fst.size(); i++) {
+      dist[ids_fst[i]][ids_snd[i]]++;
+    }
+
+    // Build up the prefix sum matrix
+    std::vector<std::vector<int>> prefix(bkt_fst, std::vector<int>(bkt_snd, 0));
+    for (int i = 0; i < bkt_fst; i++) {
+      for (int j = 0; j < bkt_snd; j++) {
+        if (i == 0) {
+          if (j == 0) {
+            prefix[i][j] = dist[i][j];
+          } else {
+            prefix[i][j] = prefix[i][j - 1] + dist[i][j];
+          }
         } else {
-          prefix[i][j] = prefix[i][j - 1] + dist[i][j];
-        }
-      } else {
-        if (j == 0) {
-          prefix[i][j] = prefix[i - 1][j] + dist[i][j];
-        } else {
-          prefix[i][j] = prefix[i - 1][j] + prefix[i][j - 1] -
-                         prefix[i - 1][j - 1] + dist[i][j];
+          if (j == 0) {
+            prefix[i][j] = prefix[i - 1][j] + dist[i][j];
+          } else {
+            prefix[i][j] = prefix[i - 1][j] + prefix[i][j - 1] -
+                           prefix[i - 1][j - 1] + dist[i][j];
+          }
         }
       }
     }
+
+    // Do the queries
+    float avg_qerr1 = 0;
+    float max_qerr1 = 0;
+    float min_qerr1 = 0;
+    int cnt1 = QUERY_WORKLOAD;
+    float avg_qerr2 = 0;
+    float max_qerr2 = 0;
+    float min_qerr2 = 0;
+    int cnt2 = QUERY_WORKLOAD;
+    for (int i = 0; i < QUERY_WORKLOAD; i++) {
+      Query query_fst = queries_fst[i];
+      Query query_snd = queries_snd[i];
+      int act = act_vals[i];
+
+      float qerr1 = Method1(lookup_fst, lookup_snd, query_fst, query_snd,
+                            max_fst, max_snd, bkt_fst, bkt_snd, dv_fst, dv_snd,
+                            prefix, act, resultTable);
+      if (std::isfinite(qerr1)) {
+        avg_qerr1 += qerr1;
+        max_qerr1 = std::max(max_qerr1, qerr1);
+        min_qerr1 = (i == 0) ? qerr1 : std::min(min_qerr1, qerr1);
+      } else {
+        cnt1--;
+      }
+
+      float qerr2 = Method2(lookup_fst, lookup_snd, query_fst, query_snd,
+                            max_fst, max_snd, bkt_fst, bkt_snd, dv_fst, dv_snd,
+                            prefix, act, resultTable);
+      if (std::isfinite(qerr2)) {
+        avg_qerr2 += qerr2;
+        max_qerr2 = std::max(max_qerr2, qerr2);
+        min_qerr2 = (i == 0) ? qerr2 : std::min(min_qerr2, qerr2);
+      } else {
+        cnt2--;
+      }
+    }
+    avg_qerr1 /= cnt1;
+    avg_qerr2 /= cnt2;
+
+    //result << "#### Bit Width=" << bits << std::endl << std::endl;
+    //result << "* Allocated Size: " << alloc_size << std::endl;
+    //result << "* Expected Size: " << exp_size << std::endl;
+    //result << "* Experiment Result:" << std::endl << std::endl;
+
+    //std::string md = exporter.dump(resultTable);
+    //result << md << std::endl << std::endl;
+
+    summary1.add_row({columnset, std::to_string(bits), exp_size, alloc_size,
+                      std::to_string(avg_qerr1), std::to_string(max_qerr1),
+                      std::to_string(min_qerr1),
+                      std::to_string(QUERY_WORKLOAD - cnt1)});
+
+    summary2.add_row({columnset, std::to_string(bits), exp_size, alloc_size,
+                      std::to_string(avg_qerr2), std::to_string(max_qerr2),
+                      std::to_string(min_qerr2),
+                      std::to_string(QUERY_WORKLOAD - cnt2)});
+
+    std::cout << "-- Using naive methods:" << std::endl;
+    std::cout << "   * Average Q-Error: " << avg_qerr2 << std::endl;
+    std::cout << "   * Max Q-Error: " << max_qerr2 << std::endl;
+    std::cout << "   * Min Q-Error: " << min_qerr2 << std::endl;
+    std::cout << "   * Invalid Results: " << QUERY_WORKLOAD - cnt1 << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "-- Using uniform assumption:" << std::endl;
+    std::cout << "   * Average Q-Error: " << avg_qerr1 << std::endl;
+    std::cout << "   * Max Q-Error: " << max_qerr1 << std::endl;
+    std::cout << "   * Min Q-Error: " << min_qerr1 << std::endl;
+    std::cout << "   * Invalid Results: " << QUERY_WORKLOAD - cnt1 << std::endl;
+    std::cout << std::endl;
   }
-
-  // Randomly generate 10 queries
-  for (int i = 0; i < 10; i++) {
-    std::pair<float, float> query_fst = GetQuery(val_fst);
-    std::pair<float, float> query_snd = GetQuery(val_snd);
-    int act = BruteForce(val_fst, val_snd, query_fst, query_snd);
-
-    Method1(lookup_fst, lookup_snd, query_fst, query_snd, max_fst, max_snd,
-            bkt_fst, bkt_snd, dv_fst, dv_snd, prefix, act, results);
-
-    Method2(lookup_fst, lookup_snd, query_fst, query_snd, max_fst, max_snd,
-            bkt_fst, bkt_snd, dv_fst, dv_snd, prefix, act, results);
-  }
-
-  return results;
 }

@@ -102,7 +102,7 @@ I tested the algorithm in a dataset with 7 columns of numeric values and 2075259
 
 The full result of the experiment can be seen [here](./result_household_power_consumption.md).
 
-For most situations, the uniform assumption works well and the Q-error is below 2. However, exception has it that it can be worse than the naive method.
+For most situations, the uniform assumption works well and the Q-error is below 2. However, exception has it that it can be worse than the naive method. The summary can be seen [here](./summary_household_power_consumption.md).
 
 Shown below is the results when experimenting on Global_active_power * Sub_metering_1 with bit width = 8.
 
