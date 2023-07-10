@@ -94,7 +94,7 @@ This may cause great error when #DV is close to the number of buckets and the qu
 
 ![figure5](./assets/figure5.jpg)
 
-We simple use $\mathrm{\#DV} / \mathrm{\#Buckets}$ to estimate the yellow part of the above figure.
+We simple use $\mathrm{DV} / \mathrm{Buckets}$ to estimate the yellow part of the above figure.
 
 ## Results
 
