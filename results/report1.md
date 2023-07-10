@@ -3,12 +3,14 @@
 ## Goal
 
 For two columns $\mathcal{C}_1, \mathcal{C}_2$ in a dataset, given $(l_1, u_1), (l_2, u_2)$, try to estimate:
+
 $$
 \mathrm{Card}\left(\{(x, y) \in \mathcal{C}_1 \times \mathcal{C}_2 | l_1 \leqslant x \leqslant u_1 \land l_2 \leqslant y \leqslant u_2\}\right)
 $$ 
 
 ## Motivation
 By using prefix-sum matrix, we can calculate the sum of any given range easily.
+
 ![figure1](./assets/figure1.png)
 
 To do so, we first have to allocate column values into multiple buckets, thus we can build up the prefix-sum matrix shown above.
@@ -20,6 +22,7 @@ To do so, we first have to allocate column values into multiple buckets, thus we
 The total amount of buckets is a hyperparameter, and our intuition is that more bucket should be allocated to the column that contians more distinct values (#DVs).
 
 We use a simple greedy algorithmn:
+
 ```cpp
 for (int i = 0; i < bits; i++) {
     // Always allocate buckets to the column that needs more
@@ -55,6 +58,7 @@ for (int i = 1; i < val.size(); i++) {
 ```
 
 Every element $x$ in bucket $\mathcal B_i$ suffices that (except for the last bucket) :
+
 $$
 \mathrm{Lookup[i]} \leqslant x < \mathrm{Lookup[i+1]}
 $$
@@ -77,6 +81,7 @@ We take the uniform assumption, which suggests that elements in a bucket is unif
 We denote the prefix-sum function on (discrete) coordinate $(i, j)$ to be $\sum(i, j)$. For any float point number $x$, it can be expressed as $x = p_x + r_x$, where $p_x$ is integer part with $r_x$ to be the remnant. 
 
 As shown above, the prefix-sum of float point coordinates is estimated to be:
+
 $$
 \sum_{\mathrm{float}}(x, y) = \sum(p_x, p_y) + r_x(1 - r_y) \sum(p_x + 1, p_y) + r_y(1 - r_x) \sum(p_x, p_y + 1) + r_x r_y \sum(p_x +1, p_y + 1) 
 $$
@@ -89,7 +94,7 @@ This may cause great error when #DV is close to the number of buckets and the qu
 
 ![figure5](./assets/figure5.jpg)
 
-We simple use $ \mathrm{\#DV} / \mathrm{\#Buckets}$ to estimate the yellow part of the above figure.
+We simple use $\mathrm{\#DV} / \mathrm{\#Buckets}$ to estimate the yellow part of the above figure.
 
 ## Results
 
