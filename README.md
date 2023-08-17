@@ -1,5 +1,9 @@
 # The Cardinity Estimation Experiment Platform
 
+## Updata
+
+[Report of the newest NN solution](./python/report.md)
+
 ## Algorithms
 ### How to allocate buckets
 The greedy algorithm always allocates bucket to the column that need more.
