@@ -2,7 +2,7 @@
 
 ## Updata
 
-[Report of the newest NN solution](./python/report.md)
+[Report of the newest NN solution](./python/report/report.md)
 
 ## Algorithms
 ### How to allocate buckets
