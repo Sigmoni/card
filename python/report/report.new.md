@@ -25,4 +25,6 @@ $$
 
 Where $\nabla \hat x$ is computed by `torch.autograd.grad` and $\nabla x$ is simply computed according to prefix-sum algorithm.
 
-How to do this is still in progress, for the computating prefix-sum gradient cannot be added to the computation graph, thus cannot be autograded.
+By applying this method, the result is significantly improved.
+
+![fig2](./assets/image9.png)
