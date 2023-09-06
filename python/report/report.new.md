@@ -17,9 +17,10 @@ $$
 The proposed loss function including gradient:
 
 $$
+\begin{align}
 \mathcal L_{\nabla} = \mathrm{MSE}(\nabla \hat x, \nabla x) \\
-
 \mathcal L_{New} = \alpha \mathcal L + (1 - \alpha) \mathcal L_{\nabla}
+\end{align}
 $$
 
 Where $\nabla \hat x$ is computed by `torch.autograd.grad` and $\nabla x$ is simply computed according to prefix-sum algorithm.
