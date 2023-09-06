@@ -31,16 +31,16 @@ NeuralNetwork(
 
 The results indicates that the model behaves random and connot learn the pattern anymore.
 
-![fig1](image1.png)
+![fig1](./assets/image1.png)
 
 ### Attemp4: using normalization
 
 normalization effectively improves r2-score. 
 
-![fig6](image6.png)
+![fig6](./assets/image6.png)
 
 To compare with baseline method which simply uses prefix-sum, we find that the MLPs reaches the same level of accuracy.
 
-![fig7](image7.png)
+![fig7](./assets/image7.png)
 
 However, to make prediction, we must make linear tranformation $y_{pred} = ky_{model} + b$ where $k$ and $b$ relies on the knowledge of table. This makes the model table-specific.
